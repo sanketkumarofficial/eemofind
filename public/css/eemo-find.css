@@ -1,0 +1,28 @@
+:root { --teal: #00897b; --teal-dark: #00695c; --surface: #ffffff; --line: #d8e2df; --text: #16211f; }
+[data-bs-theme="dark"] { --surface: #111816; --line: #263632; --text: #ecf6f3; }
+body { background: #f4f8f7; color: var(--text); }
+.app-shell { display: flex; min-height: 100vh; }
+.app-sidebar { position: sticky; top: 0; width: 270px; height: 100vh; overflow-y: auto; background: #0e2f2b; color: #fff; padding: 1rem; }
+.brand { display: flex; align-items: center; gap: .75rem; color: #fff; text-decoration: none; margin-bottom: 1rem; }
+.brand span { display: grid; place-items: center; width: 40px; height: 40px; background: var(--teal); border-radius: 8px; font-weight: 700; }
+.app-sidebar .nav-link { color: #cfe4df; border-radius: 8px; display: flex; gap: .75rem; align-items: center; }
+.app-sidebar .nav-link.active, .app-sidebar .nav-link:hover { background: rgba(255,255,255,.12); color: #fff; }
+.app-main { flex: 1; min-width: 0; }
+.app-header { position: sticky; top: 0; z-index: 20; display: flex; justify-content: space-between; gap: 1rem; align-items: center; padding: .85rem 1.25rem; background: rgba(255,255,255,.9); border-bottom: 1px solid var(--line); backdrop-filter: blur(12px); }
+.search { position: relative; width: min(520px, 100%); }
+.search i { position: absolute; left: .8rem; top: .6rem; color: #5f716d; }
+.search input { padding-left: 2.25rem; }
+.btn-teal { background: var(--teal); color: #fff; border-color: var(--teal); }
+.btn-teal:hover { background: var(--teal-dark); color: #fff; border-color: var(--teal-dark); }
+.metric-card, .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; box-shadow: 0 8px 24px rgba(22,33,31,.05); }
+.metric-card span { color: #637772; display: block; font-size: .85rem; }
+.metric-card strong { font-size: 1.65rem; line-height: 1.25; }
+.panel-title { font-weight: 700; margin-bottom: .75rem; }
+.chart { min-height: 220px; }
+.empty-state { text-align: center; padding: 3rem; color: #637772; }
+@media (max-width: 960px) {
+  .app-shell { display: block; }
+  .app-sidebar { position: static; width: 100%; height: auto; }
+  .app-sidebar .nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .app-header { align-items: stretch; flex-direction: column; }
+}
