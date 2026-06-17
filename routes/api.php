@@ -8,13 +8,15 @@ Route::prefix('v1')->group(function () {
     Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
+    Route::post('auth/send-otp', [AuthController::class, 'sendOtp']);
+    Route::post('auth/verify-otp', [AuthController::class, 'verifyOtp']);
+
+
     Route::middleware(['auth:sanctum', 'active', 'force.logout'])->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('me', [AuthController::class, 'me']);
         Route::patch('me', [AuthController::class, 'updateProfile']);
 
-        Route::post('auth/send-otp', [AuthController::class, 'sendOtp']);
-        Route::post('auth/verify-otp', [AuthController::class, 'verifyOtp']);
 
         Route::get('devices', [MobileController::class, 'devices']);
         Route::get('devices/{device}', [MobileController::class, 'device']);
