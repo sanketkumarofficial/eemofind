@@ -13,6 +13,9 @@ Route::prefix('v1')->group(function () {
         Route::get('me', [AuthController::class, 'me']);
         Route::patch('me', [AuthController::class, 'updateProfile']);
 
+        Route::post('auth/send-otp', [AuthController::class, 'sendOtp']);
+        Route::post('auth/verify-otp', [AuthController::class, 'verifyOtp']);
+
         Route::get('devices', [MobileController::class, 'devices']);
         Route::get('devices/{device}', [MobileController::class, 'device']);
         Route::post('devices/{device}/heartbeat', [MobileController::class, 'heartbeat'])->middleware('throttle:60,1');
