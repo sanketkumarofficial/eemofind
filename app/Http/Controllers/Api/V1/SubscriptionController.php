@@ -53,63 +53,83 @@ class SubscriptionController extends Controller
     /**
      * Purchase Plan
      */
-    public function purchase(Request $request, Plan $plan)
-    {
-        DB::beginTransaction();
+    public function purchase(Request $request)
+{
+$request->validate([
+'plan_id'             => 'required|exists:plans,id',
+'payment_method'      => 'required|in:razorpay',
+'razorpay_order_id'   => 'required|string',
+'razorpay_payment_id' => 'required|string',
+'razorpay_signature'  => 'required|string',
+]);
 
-        try {
+DB::beginTransaction();
 
-            $subscription = Subscription::create([
-                'user_id'    => $request->user()->id,
-                'plan_id'    => $plan->id,
-                'amount'     => $plan->price,
-                'status'     => 'pending',
-                'start_date' => now(),
-                'end_date'   => now()->addMonth(),
-            ]);
+try {
 
-            $payment = Payment::create([
-                'user_id'         => $request->user()->id,
-                'subscription_id' => $subscription->id,
-                'amount'          => $plan->price,
-                'status'          => 'pending',
-                'payment_method'  => 'razorpay',
-            ]);
+    $plan = Plan::findOrFail($request->plan_id);
 
-            DB::table('notifications')->insert([
-                'id' => (string) Str::uuid(),
-                'type' => 'subscription_pending',
-                'notifiable_type' => 'App\\Models\\User',
-                'notifiable_id' => $request->user()->id,
-                'data' => json_encode([
-                    'title' => 'Plan Purchase Started',
-                    'message' => 'Payment process initiated.',
-                    'plan' => $plan->name
-                ]),
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
+    $subscription = Subscription::create([
+        'user_id'    => $request->user()->id,
+        'plan_id'    => $plan->id,
+        'amount'     => $plan->price,
+        'status'     => 'active',
+        'start_date' => now(),
+        'end_date'   => now()->addMonth(),
+    ]);
 
-            DB::commit();
+    $payment = Payment::create([
+        'user_id'         => $request->user()->id,
+        'subscription_id' => $subscription->id,
 
-            return response()->json([
-                'success' => true,
-                'subscription_id' => $subscription->id,
-                'payment_id' => $payment->id,
-                'amount' => $plan->price,
-                'message' => 'Proceed with Razorpay payment'
-            ]);
+        'order_id'        => $request->razorpay_order_id,
+        'transaction_id'  => $request->razorpay_payment_id,
 
-        } catch (\Exception $e) {
+        'amount'          => $plan->price,
+        'status'          => 'paid',
+        'payment_method'  => $request->payment_method,
 
-            DB::rollBack();
+        'gateway_response' => $request->all(),
+        'paid_at'         => now(),
+    ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ],500);
-        }
-    }
+    DB::table('notifications')->insert([
+        'id' => (string) Str::uuid(),
+        'type' => 'subscription_success',
+        'notifiable_type' => 'App\\Models\\User',
+        'notifiable_id' => $request->user()->id,
+        'data' => json_encode([
+            'title' => 'Subscription Activated',
+            'message' => 'Your plan activated successfully.',
+            'plan_name' => $plan->name,
+            'subscription_id' => $subscription->id
+        ]),
+        'read_at' => null,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    DB::commit();
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Plan purchased successfully',
+        'subscription' => $subscription,
+        'payment' => $payment
+    ]);
+
+} catch (\Exception $e) {
+
+    DB::rollBack();
+
+    return response()->json([
+        'success' => false,
+        'message' => $e->getMessage()
+    ], 500);
+}
+
+}
+
 
     /**
      * Verify Razorpay Payment
