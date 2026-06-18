@@ -5,6 +5,8 @@ use App\Http\Controllers\Api\MobileController;
 use App\Http\Controllers\Api\V1\AuthController;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\Api\V1\SubscriptionController;
+
 
 Route::prefix('v1')->group(function () {
     Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
@@ -36,11 +38,12 @@ Route::prefix('v1')->group(function () {
         Route::patch('groups/{group}/members/{userId}', [MobileController::class, 'setMemberRole']);
         Route::delete('groups/{group}/members/{userId}', [MobileController::class, 'removeMember']);
 
-        Route::get('plans', [MobileController::class, 'plans']);
-        Route::get('subscriptions', [MobileController::class, 'subscriptions']);
-        Route::post('plans/{plan}/purchase', [MobileController::class, 'purchase']);
-        Route::post('payments/{payment}/verify', [MobileController::class, 'verifyPayment']);
-        Route::post('subscriptions/{subscription}/cancel', [MobileController::class, 'cancelSubscription']);
+        Route::get('plans', [SubscriptionController::class, 'plans']);
+        Route::get('subscriptions', [SubscriptionController::class, 'subscriptions']);
+        Route::post('plans/{plan}/purchase', [SubscriptionController::class, 'purchase']);
+        Route::post('payments/{payment}/verify', [SubscriptionController::class, 'verifyPayment']);
+        Route::post('subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancelSubscription']);
+
 
         Route::get('notifications', [MobileController::class, 'notifications']);
         Route::post('notifications/{id}/read', [MobileController::class, 'readNotification']);

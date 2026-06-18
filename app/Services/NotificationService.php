@@ -2,15 +2,29 @@
 
 namespace App\Services;
 
-use App\Models\NotificationLog;
-use App\Models\User;
-use App\Notifications\ActionNotification;
+use Illuminate\Support\Facades\DB;
 
 class NotificationService
 {
-    public function send(User $user, string $eventType, string $title, string $message, array $payload = []): void
-    {
-        $user->notify(new ActionNotification($eventType, $title, $message, $payload));
-        NotificationLog::create(['user_id' => $user->id, 'channel' => 'database', 'event_type' => $eventType, 'title' => $title, 'message' => $message, 'payload' => $payload, 'status' => 'sent', 'sent_at' => now()]);
+    public static function send(
+        int $userId,
+        string $title,
+        string $message,
+        string $type = 'general',
+        array $extra = []
+    ) {
+        DB::table('notifications')->insert([
+            'id' => (string) \Illuminate\Support\Str::uuid(),
+            'type' => $type,
+            'notifiable_type' => 'App\\Models\\User',
+            'notifiable_id' => $userId,
+            'data' => json_encode([
+                'title' => $title,
+                'message' => $message,
+                'extra' => $extra
+            ]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
     }
 }
