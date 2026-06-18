@@ -58,9 +58,11 @@ class SubscriptionController extends Controller
     $request->validate([
     'plan_id'             => 'required|exists:plans,id',
     'payment_method'      => 'required|in:razorpay',
-    'razorpay_order_id'   => 'required|string',
-    'razorpay_payment_id' => 'required|string',
-    'razorpay_signature'  => 'required|string',
+    'payment_status'      => 'required|in:paid,pending,failed,cancelled',
+
+        'razorpay_order_id'   => 'nullable|string',
+        'razorpay_payment_id' => 'nullable|string',
+        'razorpay_signature'  => 'nullable|string',
     ]);
 
     DB::beginTransaction();
@@ -69,14 +71,41 @@ class SubscriptionController extends Controller
 
         $plan = Plan::findOrFail($request->plan_id);
 
-        $subscription = Subscription::create([
-            'user_id'    => $request->user()->id,
-            'plan_id'    => $plan->id,
-            'amount'     => $plan->price,
-            'status'     => 'active',
-            'start_date' => now(),
-            'end_date'   => now()->addMonth(),
-        ]);
+        $subscription = Subscription::where(
+            'user_id',
+            $request->user()->id
+        )->first();
+
+        if ($subscription) {
+
+            $currentEndDate = $subscription->end_date &&
+                $subscription->end_date > now()
+                    ? \Carbon\Carbon::parse($subscription->end_date)
+                    : now();
+
+            $subscription->update([
+                'plan_id'    => $plan->id,
+                'amount'     => $plan->price,
+                'start_date' => now(),
+                'end_date'   => $currentEndDate->copy()->addMonth(),
+                'status'     => $request->payment_status === 'paid'
+                    ? 'active'
+                    : 'pending',
+            ]);
+
+        } else {
+
+            $subscription = Subscription::create([
+                'user_id'    => $request->user()->id,
+                'plan_id'    => $plan->id,
+                'amount'     => $plan->price,
+                'start_date' => now(),
+                'end_date'   => now()->addMonth(),
+                'status'     => $request->payment_status === 'paid'
+                    ? 'active'
+                    : 'pending',
+            ]);
+        }
 
         $payment = Payment::create([
             'user_id'         => $request->user()->id,
@@ -89,24 +118,38 @@ class SubscriptionController extends Controller
 
             'amount'          => $plan->price,
             'currency'        => 'INR',
-            'status'          => 'paid',
+            'status'          => $request->payment_status,
             'payment_method'  => $request->payment_method,
 
-            'gateway_response'=> $request->all(),
-            'paid_at'         => now(),
+            'gateway_response' => $request->all(),
+
+            'paid_at' => $request->payment_status === 'paid'
+                ? now()
+                : null,
         ]);
 
         DB::table('notifications')->insert([
             'id' => (string) Str::uuid(),
-            'type' => 'subscription_success',
+            'type' => $request->payment_status === 'paid'
+                ? 'subscription_success'
+                : 'subscription_pending',
+
             'notifiable_type' => 'App\\Models\\User',
             'notifiable_id' => $request->user()->id,
+
             'data' => json_encode([
-                'title' => 'Subscription Activated',
-                'message' => 'Your plan activated successfully.',
+                'title' => $request->payment_status === 'paid'
+                    ? 'Subscription Activated'
+                    : 'Payment Pending',
+
+                'message' => $request->payment_status === 'paid'
+                    ? 'Your subscription has been activated.'
+                    : 'Your payment is pending.',
+
                 'plan_name' => $plan->name,
-                'subscription_id' => $subscription->id
+                'subscription_id' => $subscription->id,
             ]),
+
             'read_at' => null,
             'created_at' => now(),
             'updated_at' => now(),
@@ -116,9 +159,9 @@ class SubscriptionController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Plan purchased successfully',
+            'message' => 'Plan processed successfully',
             'subscription' => $subscription,
-            'payment' => $payment
+            'payment' => $payment,
         ]);
 
     } catch (\Exception $e) {
@@ -127,7 +170,7 @@ class SubscriptionController extends Controller
 
         return response()->json([
             'success' => false,
-            'message' => $e->getMessage()
+            'message' => $e->getMessage(),
         ], 500);
     }
 
@@ -135,76 +178,58 @@ class SubscriptionController extends Controller
 
 
 
+
     /**
      * Verify Razorpay Payment
      */
     public function verifyPayment(Request $request, Payment $payment)
-    {
-        $request->validate([
-            'razorpay_payment_id' => 'required',
-            'razorpay_order_id' => 'required',
-            'razorpay_signature' => 'required',
-        ]);
+{
+$request->validate([
+'payment_status'      => 'required|in:paid,failed',
+'razorpay_order_id'   => 'nullable|string',
+'razorpay_payment_id' => 'nullable|string',
+'razorpay_signature'  => 'nullable|string',
+]);
 
-        DB::beginTransaction();
+DB::beginTransaction();
 
-        try {
+try {
 
-            $payment->update([
-                'status' => 'paid',
-                'gateway_payment_id' => $request->razorpay_payment_id,
-                'gateway_order_id' => $request->razorpay_order_id,
-                'gateway_response' => $request->all(),
-                'paid_at' => now(),
-            ]);
+    $payment->update([
+        'status'     => $request->payment_status,
+        'order_id'   => $request->razorpay_order_id,
+        'payment_id' => $request->razorpay_payment_id,
+        'signature'  => $request->razorpay_signature,
+        'paid_at'    => $request->payment_status === 'paid'
+            ? now()
+            : null,
+    ]);
 
-            $payment->subscription->update([
-                'status' => 'active'
-            ]);
+    $payment->subscription->update([
+        'status' => $request->payment_status === 'paid'
+            ? 'active'
+            : 'pending'
+    ]);
 
-            DB::table('notifications')->insert([
-                'id' => (string) Str::uuid(),
-                'type' => 'subscription_success',
-                'notifiable_type' => 'App\\Models\\User',
-                'notifiable_id' => $payment->user_id,
-                'data' => json_encode([
-                    'title' => 'Subscription Activated',
-                    'message' => 'Your plan activated successfully.'
-                ]),
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
+    DB::commit();
 
-            DB::commit();
+    return response()->json([
+        'success' => true,
+        'message' => 'Payment updated successfully'
+    ]);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'Payment verified successfully'
-            ]);
+} catch (\Exception $e) {
 
-        } catch (\Exception $e) {
+    DB::rollBack();
 
-            DB::rollBack();
+    return response()->json([
+        'success' => false,
+        'message' => $e->getMessage()
+    ], 500);
+}
 
-            DB::table('notifications')->insert([
-                'id' => (string) Str::uuid(),
-                'type' => 'subscription_failed',
-                'notifiable_type' => 'App\\Models\\User',
-                'notifiable_id' => $payment->user_id,
-                'data' => json_encode([
-                    'title' => 'Payment Failed',
-                    'message' => $e->getMessage()
-                ]),
-                'created_at' => now(),
-                'updated_at' => now()
-            ]);
+}
 
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage()
-            ],500);
-        }
-    }
 
     /**
      * Cancel Subscription
