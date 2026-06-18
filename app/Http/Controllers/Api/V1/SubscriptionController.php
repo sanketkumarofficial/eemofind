@@ -12,238 +12,146 @@ use Illuminate\Support\Str;
 
 class SubscriptionController extends Controller
 {
-    /**
-     * Plan List
-     */
-    public function plans()
-    {
-        return response()->json([
-            'success' => true,
-            'plans' => Plan::where('is_active', 1)->get()
-        ]);
-    }
-
-    /**
-     * User Subscription History
-     */
-    public function subscriptions(Request $request)
-    {
-        return response()->json([
-            'success' => true,
-            'subscriptions' => Subscription::with('plan')
-                ->where('user_id', $request->user()->id)
-                ->latest()
-                ->get()
-        ]);
-    }
-
-    /**
-     * Payment History
-     */
-    public function payments(Request $request)
-    {
-        return response()->json([
-            'success' => true,
-            'payments' => Payment::where('user_id', $request->user()->id)
-                ->latest()
-                ->get()
-        ]);
-    }
-
-    /**
-     * Purchase Plan
-     */
     public function purchase(Request $request)
     {
-    $request->validate([
-    'plan_id'             => 'required|exists:plans,id',
-    'payment_method'      => 'required|in:razorpay',
-    'payment_status'      => 'required|in:paid,pending,failed,cancelled',
+        $request->validate([
+            'plan_id'             => 'required|exists:plans,id',
+            'payment_method'      => 'required|in:razorpay',
+            'payment_status'      => 'required|in:paid,pending,failed,cancelled',
 
-        'razorpay_order_id'   => 'nullable|string',
-        'razorpay_payment_id' => 'nullable|string',
-        'razorpay_signature'  => 'nullable|string',
-    ]);
-
-    DB::beginTransaction();
-
-    try {
-
-        $plan = Plan::findOrFail($request->plan_id);
-
-        $subscription = Subscription::where(
-            'user_id',
-            $request->user()->id
-        )->first();
-
-        if ($subscription) {
-
-            $currentEndDate = $subscription->end_date &&
-                $subscription->end_date > now()
-                    ? \Carbon\Carbon::parse($subscription->end_date)
-                    : now();
-
-            $subscription->update([
-                'plan_id'    => $plan->id,
-                'amount'     => $plan->price,
-                'start_date' => now(),
-                'end_date'   => $currentEndDate->copy()->addMonth(),
-                'status'     => $request->payment_status === 'paid'
-                    ? 'active'
-                    : 'pending',
-            ]);
-
-        } else {
-
-            $subscription = Subscription::create([
-                'user_id'    => $request->user()->id,
-                'plan_id'    => $plan->id,
-                'amount'     => $plan->price,
-                'start_date' => now(),
-                'end_date'   => now()->addMonth(),
-                'status'     => $request->payment_status === 'paid'
-                    ? 'active'
-                    : 'pending',
-            ]);
-        }
-
-        $payment = Payment::create([
-            'user_id'         => $request->user()->id,
-            'subscription_id' => $subscription->id,
-
-            'gateway'         => 'razorpay',
-            'order_id'        => $request->razorpay_order_id,
-            'payment_id'      => $request->razorpay_payment_id,
-            'signature'       => $request->razorpay_signature,
-
-            'amount'          => $plan->price,
-            'currency'        => 'INR',
-            'status'          => $request->payment_status,
-            'payment_method'  => $request->payment_method,
-
-            'gateway_response' => $request->all(),
-
-            'paid_at' => $request->payment_status === 'paid'
-                ? now()
-                : null,
+            'razorpay_order_id'   => 'nullable|string',
+            'razorpay_payment_id' => 'nullable|string',
+            'razorpay_signature'  => 'nullable|string',
         ]);
 
-        DB::table('notifications')->insert([
-            'id' => (string) Str::uuid(),
-            'type' => $request->payment_status === 'paid'
-                ? 'subscription_success'
-                : 'subscription_pending',
+        DB::beginTransaction();
 
-            'notifiable_type' => 'App\\Models\\User',
-            'notifiable_id' => $request->user()->id,
+        try {
 
-            'data' => json_encode([
-                'title' => $request->payment_status === 'paid'
-                    ? 'Subscription Activated'
-                    : 'Payment Pending',
+            $plan = Plan::findOrFail($request->plan_id);
 
-                'message' => $request->payment_status === 'paid'
-                    ? 'Your subscription has been activated.'
-                    : 'Your payment is pending.',
+            $subscription = Subscription::where(
+                'user_id',
+                $request->user()->id
+            )->first();
 
-                'plan_name' => $plan->name,
+            if ($subscription) {
+
+                $baseDate = $subscription->end_date &&
+                    $subscription->end_date > now()
+                        ? \Carbon\Carbon::parse($subscription->end_date)
+                        : now();
+
+                $subscription->update([
+                    'plan_id'    => $plan->id,
+                    'amount'     => $plan->price,
+                    'start_date' => now()->toDateString(),
+                    'end_date'   => $baseDate->copy()->addMonth()->toDateString(),
+                    'status'     => $request->payment_status == 'paid'
+                        ? 'active'
+                        : 'pending',
+                ]);
+
+            } else {
+
+                $subscription = Subscription::create([
+                    'user_id'    => $request->user()->id,
+                    'plan_id'    => $plan->id,
+                    'amount'     => $plan->price,
+                    'start_date' => now()->toDateString(),
+                    'end_date'   => now()->addMonth()->toDateString(),
+                    'status'     => $request->payment_status == 'paid'
+                        ? 'active'
+                        : 'pending',
+                ]);
+            }
+
+            $payment = Payment::create([
+                'user_id'         => $request->user()->id,
                 'subscription_id' => $subscription->id,
-            ]),
 
-            'read_at' => null,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+                'gateway'         => 'razorpay',
+                'order_id'        => $request->razorpay_order_id,
+                'payment_id'      => $request->razorpay_payment_id,
+                'signature'       => $request->razorpay_signature,
 
-        DB::commit();
+                'amount'          => $plan->price,
+                'currency'        => 'INR',
+                'status'          => $request->payment_status,
+                'payment_method'  => $request->payment_method,
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Plan processed successfully',
-            'subscription' => $subscription,
-            'payment' => $payment,
-        ]);
+                'gateway_response' => $request->all(),
 
-    } catch (\Exception $e) {
+                'paid_at' => $request->payment_status == 'paid'
+                    ? now()
+                    : null,
+            ]);
 
-        DB::rollBack();
+            DB::table('notifications')->insert([
+                'id' => (string) Str::uuid(),
+                'type' => 'subscription',
+                'notifiable_type' => 'App\\Models\\User',
+                'notifiable_id' => $request->user()->id,
+                'data' => json_encode([
+                    'title' => $request->payment_status == 'paid'
+                        ? 'Subscription Activated'
+                        : 'Payment Pending',
+                    'message' => $request->payment_status == 'paid'
+                        ? 'Your subscription activated successfully.'
+                        : 'Your payment is pending.',
+                    'plan_name' => $plan->name
+                ]),
+                'read_at' => null,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
 
-        return response()->json([
-            'success' => false,
-            'message' => $e->getMessage(),
-        ], 500);
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Plan processed successfully',
+                'subscription' => $subscription,
+                'payment' => $payment
+            ]);
+
+        } catch (\Exception $e) {
+
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
-
-    }
-
-
-
 
     /**
-     * Verify Razorpay Payment
+     * Current Active Subscription
      */
-    public function verifyPayment(Request $request, Payment $payment)
-{
-$request->validate([
-'payment_status'      => 'required|in:paid,failed',
-'razorpay_order_id'   => 'nullable|string',
-'razorpay_payment_id' => 'nullable|string',
-'razorpay_signature'  => 'nullable|string',
-]);
+            public function currentPlan(Request $request)
+            {
+                $subscription = Subscription::with('plan')
+                    ->where('user_id', $request->user()->id)
+                    ->first();
 
-DB::beginTransaction();
+                return response()->json([
+                    'success' => true,
+                    'subscription' => $subscription
+                ]);
+            }
 
-try {
+            /**
+             * Payment History
+             */
+            public function payments(Request $request)
+            {
+                return response()->json([
+                    'success' => true,
+                    'payments' => Payment::where('user_id', $request->user()->id)
+                        ->latest()
+                        ->get()
+                ]);
+            }
 
-    $payment->update([
-        'status'     => $request->payment_status,
-        'order_id'   => $request->razorpay_order_id,
-        'payment_id' => $request->razorpay_payment_id,
-        'signature'  => $request->razorpay_signature,
-        'paid_at'    => $request->payment_status === 'paid'
-            ? now()
-            : null,
-    ]);
-
-    $payment->subscription->update([
-        'status' => $request->payment_status === 'paid'
-            ? 'active'
-            : 'pending'
-    ]);
-
-    DB::commit();
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Payment updated successfully'
-    ]);
-
-} catch (\Exception $e) {
-
-    DB::rollBack();
-
-    return response()->json([
-        'success' => false,
-        'message' => $e->getMessage()
-    ], 500);
-}
-
-}
-
-
-    /**
-     * Cancel Subscription
-     */
-    public function cancelSubscription(Subscription $subscription)
-    {
-        $subscription->update([
-            'status' => 'cancelled',
-            'cancelled_at' => now(),
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Subscription cancelled'
-        ]);
-    }
 }

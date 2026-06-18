@@ -40,12 +40,8 @@ Route::prefix('v1')->group(function () {
 
         Route::get('plans', [SubscriptionController::class, 'plans']);
         Route::post('plans/purchase', [SubscriptionController::class, 'purchase']);
-        Route::post('payments/{payment}/verify', [SubscriptionController::class, 'verifyPayment']);
-
-        Route::get('subscriptions', [SubscriptionController::class, 'subscriptions']);
-        Route::get('payments', [SubscriptionController::class, 'payments']);
-
-        Route::post('subscriptions/{subscription}/cancel', [SubscriptionController::class, 'cancelSubscription']);
+        Route::get('subscription/current', [SubscriptionController::class, 'currentPlan']);
+        Route::get('payments/history', [SubscriptionController::class, 'payments']);
 
 
         Route::get('notifications', [MobileController::class, 'notifications']);
