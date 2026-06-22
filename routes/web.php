@@ -8,6 +8,10 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
 
+Route::get('/tracking-test', function () {
+    return 'TRACKING TEST';
+})->name('tracking.test');
+
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthController::class, 'showLogin'])->name('login');
     Route::post('login', [AuthController::class, 'login'])->name('login.submit');
@@ -55,13 +59,19 @@ Route::middleware(['auth', 'active', 'force.logout'])->group(function () {
         Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
 
-        // Tracking Routes
-        Route::get('tracking', function () {
-            return 'Tracking';
-        })->name('tracking.index');
+        /*
+|--------------------------------------------------------------------------
+| Tracking
+|--------------------------------------------------------------------------
+*/
 
-        Route::get('tracking/history', function () {
-            return 'History';
-        })->name('tracking.history');
+Route::get('tracking', function () {
+    return view('admin.tracking.index');
+})->name('tracking.index');
+
+Route::get('tracking/history', function () {
+    return view('admin.tracking.history');
+})->name('tracking.history');
+        
     });
 });
