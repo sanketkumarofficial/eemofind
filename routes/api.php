@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\Api\V1\SubscriptionController;
 
+use App\Http\Controllers\Admin\TrackingController;
+
 
 Route::prefix('v1')->group(function () {
     Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
@@ -54,5 +56,17 @@ Route::prefix('v1')->group(function () {
         Route::get('emergency-contacts', [MobileController::class, 'contacts']);
         Route::post('emergency-contacts', [MobileController::class, 'addContact']);
         Route::delete('emergency-contacts/{contact}', [MobileController::class, 'deleteContact']);
+    });
+
+    Route::prefix('admin')
+    ->middleware(['auth'])
+    ->name('admin.')
+    ->group(function () {
+
+        Route::get('/tracking', [TrackingController::class, 'index'])
+            ->name('tracking.index');
+
+        Route::get('/tracking/history', [TrackingController::class, 'history'])
+            ->name('tracking.history');
     });
 });
