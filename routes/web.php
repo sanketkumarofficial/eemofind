@@ -18,17 +18,6 @@ Route::middleware('guest')->group(function () {
     Route::post('reset-password', [AuthController::class, 'reset'])->name('password.update');
 });
 
-Route::prefix('admin')
-    ->middleware(['auth'])
-    ->name('admin.')
-    ->group(function () {
-        Route::get('/tracking', [TrackingController::class, 'index'])
-            ->name('tracking.index');
-
-        Route::get('/tracking/history', [TrackingController::class, 'history'])
-            ->name('tracking.history');
-    });
-
 Route::middleware(['auth', 'active', 'force.logout'])->group(function () {
     Route::redirect('/', '/dashboard');
     Route::get('dashboard', DashboardController::class)->name('dashboard');
@@ -51,5 +40,12 @@ Route::middleware(['auth', 'active', 'force.logout'])->group(function () {
         Route::get('reports/{type}/{format}', [ReportController::class, 'export'])->name('reports.export');
         Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
+
+        Route::get('tracking', [TrackingController::class, 'index'])
+            ->name('tracking.index');
+
+        Route::get('tracking/history', [TrackingController::class, 'history'])
+            ->name('tracking.history');
+
     });
 });
