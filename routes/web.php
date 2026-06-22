@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\SupportController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Admin\TrackingController;
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [AuthController::class, 'showLogin'])->name('login');
@@ -16,6 +17,17 @@ Route::middleware('guest')->group(function () {
     Route::get('reset-password/{token}', [AuthController::class, 'showReset'])->name('password.reset');
     Route::post('reset-password', [AuthController::class, 'reset'])->name('password.update');
 });
+
+Route::prefix('admin')
+    ->middleware(['auth'])
+    ->name('admin.')
+    ->group(function () {
+        Route::get('/tracking', [TrackingController::class, 'index'])
+            ->name('tracking.index');
+
+        Route::get('/tracking/history', [TrackingController::class, 'history'])
+            ->name('tracking.history');
+    });
 
 Route::middleware(['auth', 'active', 'force.logout'])->group(function () {
     Route::redirect('/', '/dashboard');

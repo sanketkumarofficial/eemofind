@@ -57,16 +57,4 @@ Route::prefix('v1')->group(function () {
         Route::post('emergency-contacts', [MobileController::class, 'addContact']);
         Route::delete('emergency-contacts/{contact}', [MobileController::class, 'deleteContact']);
     });
-
-    Route::prefix('admin')
-    ->middleware(['auth'])
-    ->name('admin.')
-    ->group(function () {
-
-        Route::get('/tracking', [TrackingController::class, 'index'])
-            ->name('tracking.index');
-
-        Route::get('/tracking/history', [TrackingController::class, 'history'])
-            ->name('tracking.history');
-    });
 });
