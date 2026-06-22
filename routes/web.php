@@ -41,11 +41,13 @@ Route::middleware(['auth', 'active', 'force.logout'])->group(function () {
         Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
 
-        Route::get('tracking', [TrackingController::class, 'index'])
-            ->name('tracking.index');
+        Route::get('tracking', function () {
+    return 'Tracking';
+})->name('tracking.index');
 
-        Route::get('tracking/history', [TrackingController::class, 'history'])
-            ->name('tracking.history');
+Route::get('tracking/history', function () {
+    return 'History';
+})->name('tracking.history');
 
     });
 });
